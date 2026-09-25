@@ -11,6 +11,22 @@ pbpaste | ./alza.py token             # store the bearer from a browser "copy as
 
 Runs with `uv` (inline script metadata: curl_cffi, beautifulsoup4). No install step.
 
+## Install
+
+```
+git clone https://github.com/pepijnsenders/alza ~/code/alza
+~/code/alza/alza.py search "yamaha ns-aw294"
+```
+
+## Claude Code skill
+
+`skill/SKILL.md` teaches Claude Code to use the CLI (and to never fall back to curl or WebFetch,
+which Cloudflare blocks). Link it into your skills directory and invoke it with `/alza <question>`:
+
+```
+ln -s ~/code/alza/skill ~/.claude/skills/alza
+```
+
 ## How it gets past Cloudflare
 
 alza.cz sits behind a Cloudflare managed challenge that keys on the TLS fingerprint.
@@ -36,3 +52,7 @@ The Filter `inStock` flag does not filter, so there is no in-stock option.
 `me` refuses an expired one and tells you to paste a fresh curl. To get one: alza.cz,
 logged in, DevTools > Network > any `/api/` request > Copy as cURL, then `pbpaste | ./alza.py token`.
 Never commit it.
+
+## License
+
+MIT.
