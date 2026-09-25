@@ -14,7 +14,7 @@ Runs with `uv` (inline script metadata: curl_cffi, beautifulsoup4). No install s
 ## Install
 
 ```
-git clone https://github.com/pepijnsenders/alza-skill ~/code/alza
+git clone https://github.com/pepijnsenders/alza-cli ~/code/alza
 ~/code/alza/alza.py search "yamaha ns-aw294"
 ```
 
