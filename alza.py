@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["curl_cffi>=0.10", "beautifulsoup4>=4.12"]
 # ///
-"""Alza.cz from the terminal: product search, product detail, and account status.
+"""Alza.cz from the terminal: product search and product detail.
 
 Cloudflare in front of alza.cz rejects curl, WebFetch and crawler user agents on the
 TLS fingerprint. curl_cffi with Chrome impersonation passes without any cookie.
@@ -11,27 +11,18 @@ TLS fingerprint. curl_cffi with Chrome impersonation passes without any cookie.
 Commands:
   search <query> [--page N] [--sort S] [--json]
   product <id|url> [--json]
-  me [--json]                 account status summary (needs a bearer token)
-  token                       read a browser "copy as curl" from stdin, store its bearer
-
-Token: ~/.config/alza/token (or $ALZA_TOKEN). Alza access tokens live 90 minutes.
 """
 from __future__ import annotations
 
 import argparse
-import base64
 import json
-import os
 import re
 import sys
-import time
-from pathlib import Path
 
 from bs4 import BeautifulSoup
 from curl_cffi import requests
 
 BASE = "https://www.alza.cz"
-TOKEN_FILE = Path(os.environ.get("ALZA_TOKEN_FILE", Path.home() / ".config/alza/token"))
 SORTS = {"relevance": 0, "price-asc": 1, "price-desc": 2, "rating": 6, "newest": 5}
 
 
@@ -164,46 +155,6 @@ def product(s: requests.Session, ref: str) -> dict:
     }
 
 
-def load_token() -> str:
-    tok = os.environ.get("ALZA_TOKEN") or (TOKEN_FILE.read_text().strip() if TOKEN_FILE.exists() else "")
-    if not tok:
-        die(f"no token: run `alza.py token` with a browser curl on stdin, or set $ALZA_TOKEN ({TOKEN_FILE})")
-    try:
-        payload = tok.split(".")[1]
-        claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
-    except Exception:
-        die("token is not a JWT")
-    left = claims.get("exp", 0) - time.time()
-    if left <= 0:
-        die(f"token expired {int(-left // 60)} min ago; paste a fresh browser curl into `alza.py token`")
-    if left < 600:
-        print(f"warning: token expires in {int(left // 60)} min", file=sys.stderr)
-    return tok
-
-
-def me(s: requests.Session) -> dict:
-    tok = load_token()
-    claims = json.loads(base64.urlsafe_b64decode(tok.split(".")[1] + "=="))
-    r = s.get(f"{BASE}/api/users/{claims['sub']}/statusSummary",
-              headers={"authorization": f"Bearer {tok}", "accept": "application/json"})
-    if r.status_code != 200:
-        die(f"statusSummary failed: HTTP {r.status_code}", r.text)
-    return r.json()
-
-
-def store_token() -> None:
-    src = sys.stdin.read()
-    m = re.search(r"Bearer\s+([A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+)", src)
-    if not m:
-        die("no `authorization: Bearer <jwt>` found on stdin")
-    TOKEN_FILE.parent.mkdir(parents=True, exist_ok=True)
-    TOKEN_FILE.write_text(m.group(1) + "\n")
-    TOKEN_FILE.chmod(0o600)
-    payload = m.group(1).split(".")[1]
-    claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
-    print(f"stored token for user {claims.get('sub')} in {TOKEN_FILE}, "
-          f"expires in {int((claims['exp'] - time.time()) // 60)} min")
-
 
 def die(msg: str, body: str = "") -> None:
     print(f"error: {msg}", file=sys.stderr)
@@ -242,13 +193,8 @@ def main() -> None:
     pp = sub.add_parser("product")
     pp.add_argument("ref")
     pp.add_argument("--json", action="store_true")
-    mp = sub.add_parser("me")
-    mp.add_argument("--json", action="store_true")
-    sub.add_parser("token")
     a = ap.parse_args()
 
-    if a.cmd == "token":
-        return store_token()
     s = session()
     if a.cmd == "search":
         d = search(s, a.query, a.page, a.sort)
@@ -256,13 +202,6 @@ def main() -> None:
     elif a.cmd == "product":
         d = product(s, a.ref)
         print(json.dumps(d, ensure_ascii=False, indent=1)) if a.json else print("\n".join(f"{k}: {v}" for k, v in d.items()))
-    elif a.cmd == "me":
-        d = me(s)
-        if a.json:
-            print(json.dumps(d, ensure_ascii=False, indent=1))
-        else:
-            print(f"basket items: {d.get('basketProductsCount')}  notifications: {d.get('notificationsCount')}  "
-                  f"orders: {d.get('ordersStatusInfo')}")
 
 
 if __name__ == "__main__":

@@ -1,12 +1,10 @@
 # alza
 
-Alza.cz from the terminal: product search, product detail, account status.
+Alza.cz from the terminal: product search and product detail. No login, no token.
 
 ```
 ./alza.py search "oral-b io 10" [--page 2] [--sort price-asc|price-desc|rating|newest] [--json]
 ./alza.py product 7274516            # numeric id or an alza.cz product URL
-./alza.py me                          # basket count, notifications; needs a bearer token
-pbpaste | ./alza.py token             # store the bearer from a browser "copy as curl"
 ```
 
 Runs with `uv` (inline script metadata: curl_cffi, beautifulsoup4). No install step.
@@ -41,17 +39,10 @@ from a datacenter IP.
 | Search landing | `GET /search.htm?exps=<q>` (may 302 to a category page) |
 | Paging and sorting | `POST /Services/EShopService.svc/Filter` with the `_pageData.data` fields from the landing page; needs the warm session cookies from that GET |
 | Product | `GET /product-d<id>.htm` (redirects to the canonical URL), parsed from the `Product` JSON-LD |
-| Account | `GET /api/users/<sub>/statusSummary` with `Authorization: Bearer <jwt>` |
 
 Sort codes: 0 default, 1 price ascending, 2 price descending, 6 rating, 5 newest.
 The Filter `inStock` flag does not filter, so there is no in-stock option.
 
-## Token
-
-`~/.config/alza/token` (or `$ALZA_TOKEN`), mode 600. Alza access tokens live 90 minutes;
-`me` refuses an expired one and tells you to paste a fresh curl. To get one: alza.cz,
-logged in, DevTools > Network > any `/api/` request > Copy as cURL, then `pbpaste | ./alza.py token`.
-Never commit it.
 
 ## License
 
